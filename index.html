@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>RUNNER — ภารกิจวิ่งเก็บพิกัดตามลำดับ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #AFCCEA; --bg-deep: #8FB7E0; --card: #F5F9FD; --card-line: #DCE7F3;
+    --ink: #223449; --ink-dim: #6C8199; --amber: #3E93A6; --amber-dim: #DCEEF2;
+    --mint: #3E93A6; --red: #D9584D; --green: #2FA36B;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: radial-gradient(1200px 600px at 50% -10%, #C7DEF3 0%, var(--bg) 55%, var(--bg-deep) 100%);
+    color:var(--ink); font-family:'Noto Sans Thai', sans-serif; min-height:100vh;
+    display:flex; justify-content:center; padding: 10px 14px 16px;
+  }
+  .num{ font-family:'Space Grotesk', 'Noto Sans Thai', sans-serif; }
+  .wrap{ width:100%; max-width:440px; }
+  .eyebrow{ text-align:center; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-dim); font-weight:600; margin-bottom:2px; }
+  h1{ text-align:center; margin:0 0 12px; font-size:19px; font-weight:800; letter-spacing:.01em; }
+
+  .card{ background:var(--card); border:1px solid var(--card-line); border-radius:18px; padding:16px; margin-bottom:12px; }
+  label{ display:block; font-size:13px; color:var(--ink-dim); margin-bottom:6px; font-weight:600; }
+  input{
+    width:100%; padding:13px 14px; border-radius:12px; border:1px solid var(--card-line);
+    background:#EDF3FA; color:var(--ink); font-size:16px; font-family:inherit; margin-bottom:16px;
+  }
+  input::placeholder{ color:#9FB2C7; }
+  input:focus{ outline:2px solid var(--mint); outline-offset:1px; }
+  button{
+    width:100%; padding:14px; border-radius:12px; border:none; font-size:16px; font-weight:700;
+    font-family:inherit; cursor:pointer; transition: transform .1s ease, opacity .15s ease;
+  }
+  button:active{ transform: scale(.98); }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn-primary{ background:var(--amber); color:#FFFFFF; }
+  .btn-start-timer{ font-size:19px; font-weight:800; padding:17px; letter-spacing:.01em; }
+  .start-timer-icon{ font-size:23px; vertical-align:-2px; margin-right:2px; }
+  .btn-secondary{ background:var(--amber-dim); color:var(--amber); }
+  .credit-check-link{
+    text-align:center; font-size:12.5px; color:var(--amber); font-weight:700;
+    margin-top:14px; cursor:pointer; text-decoration:underline; text-underline-offset:2px;
+  }
+  .credit-check-box{ margin-top:10px; }
+  .credit-check-result{
+    margin-top:10px; padding:12px 14px; border-radius:12px; background:#EDF3FA;
+    font-size:13.5px; color:var(--ink); line-height:1.6; text-align:center; display:none;
+  }
+  .credit-check-result.show{ display:block; }
+  .credit-check-result.error{ color:var(--red); }
+  .error-msg{ color:var(--red); font-size:13px; margin:-8px 0 14px; display:none; font-weight:600; }
+  .hidden{ display:none !important; }
+
+  .player-tag{ text-align:center; font-size:12px; color:var(--ink-dim); font-weight:600; margin-bottom:6px; font-family:'Space Grotesk', sans-serif; }
+
+  .stats-row{ display:flex; align-items:center; justify-content:center; gap:16px; margin: 2px 0 10px; }
+  /* ---- ลู่วิ่งรอบสนามบอล (วงรี) แสดงความคืบหน้าจุดในรอบปัจจุบัน ---- */
+  .track{ position:relative; width:176px; height:104px; flex-shrink:0; }
+  .track svg{ width:100%; height:100%; display:block; overflow:visible; }
+  .track-lane{ fill:none; stroke:var(--card-line); stroke-width:12; }
+  .track-lane-line{ fill:none; stroke:#fff; stroke-width:1; stroke-dasharray:3 4; opacity:.9; }
+  .track-progress{ fill:none; stroke:var(--mint); stroke-width:12; stroke-linecap:round; transition: stroke-dashoffset .5s ease; }
+  .track-field{ fill:#DDEFE3; stroke:#C5E3D0; stroke-width:1; }
+  .track-runner{ fill:#fff; stroke:var(--mint); stroke-width:3; transition: cx .5s ease, cy .5s ease; }
+  .track-dot{ fill:#fff; stroke:var(--card-line); stroke-width:2; transition: fill .4s ease, stroke .4s ease; }
+  .track-dot.passed{ fill:var(--mint); stroke:var(--mint); }
+  .track-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+  .track-score{ font-size:22px; font-weight:700; line-height:1; color:var(--ink); }
+  .track-score span{ font-size:13px; color:var(--ink-dim); }
+  .track-label{ font-size:9px; color:var(--ink-dim); letter-spacing:.1em; text-transform:uppercase; margin-top:2px; }
+
+  /* ---- แถว icon checkpoint ตามจำนวนรอบ (เก็บครบ 1 รอบ = เปลี่ยนสี) ---- */
+  .round-icons{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-bottom:10px; padding:2px 4px;
+  }
+  .round-icon{ width:26px; height:26px; flex-shrink:0; }
+  .round-icons.many .round-icon{ width:20px; height:20px; }
+  .round-icon path.pin{ fill:#D5DEE9; }
+  .round-icon circle.dot{ fill:#fff; }
+  .round-icon.current path.pin{ fill:#8EDDB0; }
+  .round-icon.current{ animation: slowBlink 2.4s ease-in-out infinite; }
+  @keyframes slowBlink{ 0%,100%{ opacity:1; } 50%{ opacity:.3; } }
+  .round-icon.done path.pin{ fill:var(--green); }
+
+  .timer-col{ display:flex; flex-direction:column; gap:6px; width:130px; flex-shrink:0; }
+  .timer-block{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:var(--card); border:1px solid var(--card-line); border-radius:16px; padding:10px 16px;
+  }
+  .timer-value{ font-size:24px; font-weight:700; font-family:'Space Grotesk', sans-serif; color:var(--amber); line-height:1; }
+  .timer-value.low{ color:var(--red); }
+  .timer-label{ font-size:10px; color:var(--ink-dim); margin-top:2px; }
+
+  .section-label-play{ font-size:13.5px; letter-spacing:.01em; color:var(--ink); font-weight:800; margin: 2px 0 8px 2px; }
+
+  .gps-status{
+    display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink-dim);
+    margin-bottom:8px; padding:6px 10px; background:var(--card); border:1px solid var(--card-line); border-radius:10px;
+  }
+  .gps-dot{ width:8px; height:8px; border-radius:50%; background:var(--red); flex-shrink:0; }
+  .gps-dot.ok{ background:#2FA36B; }
+  .gps-error{
+    color:var(--red); font-size:12.5px; text-align:center; font-weight:600; margin-bottom:10px;
+    padding:10px; background:var(--card); border-radius:12px; display:none;
+  }
+
+  /* ---- Route list (sequence, only one active at a time) ---- */
+  #routeList{ display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+  .route-item{
+    display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--card-line);
+    border-radius:14px; padding:10px; position:relative;
+  }
+  .route-item.done{ opacity:.55; }
+  .route-item.target{ border-color:var(--amber); box-shadow:0 0 0 2px var(--amber-dim); }
+  .route-order{
+    width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:13px; font-family:'Space Grotesk', sans-serif; background:#EEF1F5; color:#8A97A6;
+  }
+  .route-item.target .route-order{ background:var(--amber); color:#fff; }
+  .route-item.done .route-order{ background:#D9F2E4; color:var(--green); }
+  .route-img{ width:44px; height:44px; border-radius:10px; object-fit:cover; flex-shrink:0; background:var(--amber-dim); }
+  .route-icon{
+    width:44px; height:44px; border-radius:10px; background:var(--amber-dim); display:flex; align-items:center;
+    justify-content:center; font-weight:700; color:var(--amber); font-family:'Space Grotesk', sans-serif; font-size:16px; flex-shrink:0;
+  }
+  .route-info{ flex:1; min-width:0; }
+  .route-name{ font-weight:700; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .route-dist{ font-size:11.5px; font-weight:700; font-family:'Space Grotesk', sans-serif; color:#8A97A6; margin-top:2px; }
+  .route-dist.lv-medium{ color:var(--amber); }
+  .route-dist.lv-close{ color:#E08A2C; }
+  .route-dist.lv-inrange{ color:#2FA36B; }
+  .route-status{ font-size:11px; font-weight:700; color:var(--ink-dim); flex-shrink:0; }
+  .route-checkin-btn{
+    padding:9px 12px; border-radius:9px; border:none; background:#2FA36B; color:#fff;
+    font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; flex-shrink:0;
+  }
+  .route-checkin-btn:disabled{ opacity:.6; }
+  .route-nav{
+    display:flex; align-items:center; justify-content:center; padding:8px 10px; border-radius:9px;
+    border:1px solid var(--card-line); background:#EDF3FA; color:var(--amber); font-size:11px; font-weight:700;
+    text-decoration:none; flex-shrink:0;
+  }
+  .route-target-actions{ display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
+
+
+  /* ---- End states ---- */
+  .end-card{ text-align:center; padding:36px 22px; }
+  .end-emoji{ font-size:44px; margin-bottom:10px; }
+  .end-title{ font-size:20px; font-weight:800; margin-bottom:6px; }
+  .end-sub{ font-size:14px; color:var(--ink-dim); margin-bottom:18px; }
+  .end-stats{ text-align:left; background:#EDF3FA; border-radius:14px; padding:16px 18px; display:none; }
+  .end-stats.show{ display:block; }
+  .end-stat-row{ display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--card-line); font-size:13.5px; }
+  .end-stat-row:last-child{ border-bottom:none; }
+  .end-stat-label{ color:var(--ink-dim); }
+  .end-stat-value{ font-weight:700; font-family:'Space Grotesk', sans-serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Runner Mission</div>
+  <h1>🏃 วิ่งเก็บพิกัดตามลำดับ</h1>
+
+  <!-- LOGIN -->
+  <div id="loginCard" class="card">
+    <label for="idInput">SAP ID</label>
+    <input id="idInput" type="text" inputmode="numeric" placeholder="กรอกรหัส SAP ID">
+    <label for="nameInput">ชื่อ-นามสกุล</label>
+    <input id="nameInput" type="text" placeholder="กรอกชื่อของคุณ">
+    <div id="loginError" class="error-msg"></div>
+    <button id="startBtn" class="btn-primary btn-start-timer"><span class="start-timer-icon">🏃</span>เข้าสู่ภารกิจ</button>
+
+    <div class="credit-check-link" id="creditCheckLink">ตรวจผลของวันนี้</div>
+    <div class="credit-check-box hidden" id="creditCheckBox">
+      <input id="creditCheckId" type="text" inputmode="numeric" placeholder="กรอก SAP ID">
+      <button id="creditCheckBtn" class="btn-secondary">ตรวจสอบ</button>
+      <div id="creditCheckResult" class="credit-check-result"></div>
+    </div>
+  </div>
+
+  <!-- GAME AREA -->
+  <div id="gameArea" class="hidden">
+    <div class="player-tag" id="playerTag"></div>
+
+    <div class="stats-row">
+      <div class="track">
+        <svg viewBox="0 0 176 104">
+          <rect class="track-field" x="18" y="18" width="140" height="68" rx="34"></rect>
+          <path class="track-lane" id="trackLane" d="M52,8 H124 A44,44 0 0 1 124,96 H52 A44,44 0 0 1 52,8 Z"></path>
+          <path class="track-lane-line" d="M52,8 H124 A44,44 0 0 1 124,96 H52 A44,44 0 0 1 52,8 Z"></path>
+          <path class="track-progress" id="trackProgress" d="M52,8 H124 A44,44 0 0 1 124,96 H52 A44,44 0 0 1 52,8 Z"></path>
+          <g id="trackDots"></g>
+          <circle class="track-runner" id="trackRunner" cx="52" cy="8" r="6"></circle>
+        </svg>
+        <div class="track-center">
+          <div class="track-label" style="margin-top:0;">รอบที่</div>
+          <div class="track-score num" id="trackScore">0<span id="trackTotal">/10</span></div>
+        </div>
+      </div>
+      <div class="timer-col">
+        <div class="timer-block">
+          <div class="timer-value num" id="timerText">60:00</div>
+          <div class="timer-label">เหลือเวลา</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="round-icons" id="roundIcons"></div>
+
+    <div class="gps-status">
+      <div class="gps-dot" id="gpsDot"></div>
+      <div id="gpsText">กำลังขอสิทธิ์เข้าถึงตำแหน่ง...</div>
+    </div>
+    <div class="gps-error" id="gpsError"></div>
+
+    <div class="section-label-play" id="nextLabel">จุดเช็คอินต่อไป</div>
+    <div id="routeList"></div>
+  </div>
+
+  <!-- END STATE -->
+  <div id="endCard" class="card end-card hidden">
+    <div class="end-emoji" id="endEmoji">🏁</div>
+    <div class="end-title" id="endTitle"></div>
+    <div class="end-sub" id="endSub"></div>
+    <div class="end-stats" id="endStats">
+      <div class="end-stat-row"><span class="end-stat-label">รอบที่ทำสำเร็จ</span><span class="end-stat-value" id="endRounds"></span></div>
+      <div class="end-stat-row"><span class="end-stat-label">เวลาที่ใช้</span><span class="end-stat-value" id="endDuration"></span></div>
+      <div class="end-stat-row"><span class="end-stat-label">เครดิตที่ได้</span><span class="end-stat-value" id="endCredit"></span></div>
+    </div>
+    <button id="endBackBtn" class="btn-secondary" style="margin-top:18px;">กลับหน้าแรก</button>
+  </div>
+</div>
+
+<script>
+  // TODO: แทนที่ด้วย Web App URL ของ RUNNER ที่ deploy จาก runner-code.gs
+  const API_URL = "https://script.google.com/macros/s/AKfycbzuwWbiARluB6Bbt4vsyTFipeSuquX9h6NfAZ_gpKCKX7NJ1Guc_AdDyeK4Te1d2cQ5oQ/exec";
+  const GAME_DURATION_MS = 60 * 60 * 1000;
+
+  let state = {
+    id: null, name: null,
+    timerInterval: null, statusPollInterval: null, watchId: null,
+    route: [], checkingIn: false, myPos: null,
+    startTime: null, endTime: null, roundsRequired: 3, currentRound: 1
+  };
+
+  function getDistanceLevel(dist, radius) {
+    if (dist <= radius) return { level: "inrange", label: "ในรัศมี ✓" };
+    if (dist <= 100) return { level: "close", label: "ใกล้" };
+    if (dist <= 200) return { level: "medium", label: "ปานกลาง" };
+    return { level: "far", label: "ไกล" };
+  }
+
+  function toDirectImageUrl(url) {
+    if (!url) return "";
+    const m1 = url.match(/\/file\/d\/([^/]+)/);
+    if (m1) return `https://drive.google.com/thumbnail?id=${m1[1]}&sz=w400`;
+    const m2 = url.match(/[?&]id=([^&]+)/);
+    if (m2) return `https://drive.google.com/thumbnail?id=${m2[1]}&sz=w400`;
+    return url;
+  }
+
+  function distanceMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  // ---------- เรียก API (GET เท่านั้น, ฝั่งผู้เล่นไม่มี POST) ผ่าน JSONP ----------
+  function callApi(params) {
+    return new Promise((resolve, reject) => {
+      const cbName = "jsonp_cb_" + Math.random().toString(36).slice(2);
+      const script = document.createElement("script");
+      const qs = new URLSearchParams({ ...params, callback: cbName }).toString();
+      window[cbName] = (data) => { resolve(data); delete window[cbName]; script.remove(); };
+      script.onerror = () => { reject(new Error("เรียก API ไม่สำเร็จ ตรวจสอบการเชื่อมต่อ")); delete window[cbName]; script.remove(); };
+      script.src = `${API_URL}?${qs}`;
+      document.body.appendChild(script);
+    });
+  }
+
+  const loginCard = document.getElementById("loginCard");
+  const gameArea = document.getElementById("gameArea");
+  const endCard = document.getElementById("endCard");
+
+  // ---------- ตรวจผลวันนี้ (popup แยก ไม่ต้องเริ่มเกม) ----------
+  document.getElementById("creditCheckLink").addEventListener("click", () => {
+    document.getElementById("creditCheckBox").classList.toggle("hidden");
+  });
+  document.getElementById("creditCheckBtn").addEventListener("click", async () => {
+    const id = document.getElementById("creditCheckId").value.trim();
+    const resultEl = document.getElementById("creditCheckResult");
+    if (!id) return;
+    resultEl.className = "credit-check-result show";
+    resultEl.textContent = "กำลังตรวจสอบ...";
+    try {
+      const res = await callApi({ action: "getStatus", id });
+      if (!res.success) {
+        resultEl.className = "credit-check-result show error";
+        resultEl.textContent = "ยังไม่พบข้อมูลการเล่นของวันนี้";
+        return;
+      }
+      const label = res.status === "success" ? "✅ สำเร็จภารกิจ — ได้เครดิตวันนี้ 1 เครดิต"
+        : res.status === "failed" ? "⏱️ หมดเวลา — ยังไม่ได้เครดิตวันนี้"
+        : "🏃 กำลังเล่นอยู่ตอนนี้";
+      resultEl.className = "credit-check-result show";
+      resultEl.textContent = `${res.name} (${res.playerId})\n${label}\nรอบที่ทำได้: ${Math.min(res.currentRound, res.roundsRequired)}/${res.roundsRequired}`;
+    } catch (e) {
+      resultEl.className = "credit-check-result show error";
+      resultEl.textContent = e.message;
+    }
+  });
+
+  // ---------- เข้าสู่ภารกิจ ----------
+  document.getElementById("startBtn").addEventListener("click", async () => {
+    const id = document.getElementById("idInput").value.trim();
+    const name = document.getElementById("nameInput").value.trim();
+    const errEl = document.getElementById("loginError");
+    errEl.style.display = "none";
+    if (!id || !name) { errEl.textContent = "กรุณากรอก SAP ID และชื่อให้ครบ"; errEl.style.display = "block"; return; }
+
+    const btn = document.getElementById("startBtn");
+    btn.disabled = true; btn.textContent = "กำลังเริ่มภารกิจ...";
+
+    try {
+      const res = await callApi({ action: "startGame", id, name });
+      if (!res.success) {
+        if (res.error === "daily attempt limit reached") {
+          const label = res.status === "success" ? "คุณทำภารกิจสำเร็จไปแล้ววันนี้ ✅" : "คุณเล่นไปแล้ววันนี้ (หมดเวลา) เล่นได้วันละ 1 ครั้งเท่านั้น";
+          errEl.textContent = label;
+        } else {
+          errEl.textContent = res.error || "เริ่มภารกิจไม่สำเร็จ";
+        }
+        errEl.style.display = "block";
+        return;
+      }
+      localStorage.setItem("runner_id", id);
+      localStorage.setItem("runner_name", name);
+      state.id = id; state.name = name;
+      enterGame(res);
+    } catch (e) {
+      errEl.textContent = e.message; errEl.style.display = "block";
+    } finally {
+      btn.disabled = false; btn.innerHTML = '<span class="start-timer-icon">🏃</span>เข้าสู่ภารกิจ';
+    }
+  });
+
+  // ---------- resume อัตโนมัติถ้ามี id ค้างและยังเล่นอยู่ ----------
+  (async function tryAutoResume() {
+    const savedId = localStorage.getItem("runner_id");
+    const savedName = localStorage.getItem("runner_name");
+    if (!savedId || !savedName) return;
+    document.getElementById("idInput").value = savedId;
+    document.getElementById("nameInput").value = savedName;
+    try {
+      const res = await callApi({ action: "getStatus", id: savedId });
+      if (res.success && res.status === "playing") {
+        state.id = savedId; state.name = savedName;
+        enterGame(res);
+      }
+    } catch (e) { /* ปล่อยผ่าน ให้กดเข้าสู่ภารกิจเอง */ }
+  })();
+
+  function enterGame(status) {
+    loginCard.classList.add("hidden");
+    if (status.status === "success" || status.status === "failed") { showEndState(status); return; }
+
+    gameArea.classList.remove("hidden");
+    state.roundsRequired = status.roundsRequired;
+    renderStatus(status);
+    startTimer(status.remainingMs);
+    startGpsTracking();
+    startStatusPolling();
+  }
+
+  // poll ทุก 30 วิ เพื่อเช็คว่าจุดเป้าหมายถูกสลับจากที่อื่นหรือยัง (เช่น เปิดหลายแท็บ/หลายเครื่องด้วย ID เดียวกัน)
+  // ไม่เกี่ยวกับความแม่นยำของเวลาแล้ว เพราะตัวจับเวลาคำนวณจาก endTime ตรงๆ ไม่มีทางเพี้ยนสะสมอยู่แล้ว
+  function startStatusPolling() {
+    state.statusPollInterval = setInterval(async () => {
+      try {
+        const res = await callApi({ action: "getStatus", id: state.id });
+        if (!res.success) return;
+        if (res.status === "success" || res.status === "failed") {
+          stopTimer(); stopGpsTracking(); stopStatusPolling(); showEndState(res); return;
+        }
+        // เทียบจุดเป้าหมายปัจจุบันกับที่มีอยู่ ถ้าไม่ตรง (เช่นเล่นซ้อนจากที่อื่น) ให้ render ใหม่ทันที
+        const currentTargetId = state.route.find(cp => cp.isTarget)?.id || null;
+        const freshTargetId = res.targetCheckpoint ? res.targetCheckpoint.id : null;
+        if (currentTargetId !== freshTargetId || state.currentRound !== res.currentRound) {
+          renderStatus(res);
+        } else {
+          // ยังเจอ drift เล็กน้อยได้จากดีเลย์ของ network ไม่ใช่จาก accumulation แล้ว sync ไปเผื่อไว้เฉยๆ
+          state.endTime = Date.now() + res.remainingMs;
+          updateTimerText(getRemainingMs());
+        }
+      } catch (e) { /* เน็ตหลุดชั่วคราว รอ poll รอบถัดไป */ }
+    }, 30000);
+  }
+  function stopStatusPolling() { if (state.statusPollInterval) clearInterval(state.statusPollInterval); }
+
+  // วาดความคืบหน้าบนลู่วิ่งรูปวงรี + ย้ายจุดนักวิ่งตามความยาวเส้นทาง
+  function updateTrackProgress(frac) {
+    const prog = document.getElementById("trackProgress");
+    const runner = document.getElementById("trackRunner");
+    const total = prog.getTotalLength();
+    const f = Math.max(0, Math.min(1, frac));
+    prog.style.strokeDasharray = total;
+    prog.style.strokeDashoffset = total * (1 - f);
+    prog.style.opacity = f > 0 ? 1 : 0;
+    const pt = prog.getPointAtLength(total * f);
+    runner.setAttribute("cx", pt.x);
+    runner.setAttribute("cy", pt.y);
+  }
+
+  // icon pin ต่อ 1 รอบ: เทา = ยังไม่ถึง, เขียวอ่อนกระพริบช้าๆ = รอบที่กำลังเล่น, เขียวเข้ม = เก็บครบรอบแล้ว
+  function renderRoundIcons(total, done) {
+    const box = document.getElementById("roundIcons");
+    box.classList.toggle("many", total > 12);
+    let html = "";
+    for (let i = 0; i < total; i++) {
+      const cls = i < done ? "done" : (i === done ? "current" : "");
+      html += `<svg class="round-icon ${cls}" viewBox="0 0 24 24" aria-label="รอบที่ ${i + 1}">
+        <path class="pin" d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z"/>
+        <circle class="dot" cx="12" cy="9" r="2.6"/>
+      </svg>`;
+    }
+    box.innerHTML = html;
+  }
+
+  // วาง "จุดเช็คอิน" เป็นวงกลมเล็กๆ บนวงแหวน ห่างเท่าๆ กันตามจำนวนจุดในเส้นทาง (routeLength)
+  // จุดที่วิ่งผ่านแล้วในรอบนี้ (doneThisRound) เปลี่ยนเป็นสีเขียว ที่เหลือคงสีเดิม (ยังไม่ถึง)
+  // พอขึ้นรอบใหม่ ทุกจุด doneThisRound จะกลับเป็น false เอง (มาจาก backend) หน้าตาเลยรีเซ็ตอัตโนมัติ
+  function renderTrackDots(route) {
+    const path = document.getElementById("trackLane");
+    const group = document.getElementById("trackDots");
+    const n = route.length;
+    if (!n) { group.innerHTML = ""; return; }
+    const total = path.getTotalLength();
+    let html = "";
+    for (let i = 0; i < n; i++) {
+      const pt = path.getPointAtLength((total * i) / n);
+      const passed = !!(route[i] && route[i].doneThisRound);
+      html += `<circle class="track-dot${passed ? " passed" : ""}" cx="${pt.x.toFixed(2)}" cy="${pt.y.toFixed(2)}" r="5"></circle>`;
+    }
+    group.innerHTML = html;
+  }
+
+  function renderStatus(status) {
+    state.route = status.route || [];
+    state.currentRound = status.currentRound;
+    state.roundsRequired = status.roundsRequired;
+    state.endTime = Date.now() + status.remainingMs; // sync "เวลาที่ควรจะหมด" กับ server ทุกครั้งที่มีข้อมูลสดเข้ามา
+    updateTimerText(getRemainingMs());
+
+    document.getElementById("playerTag").textContent = `SAP ID: ${status.playerId} · ${status.name}`;
+    const roundsDone = Math.max(0, Math.min(status.currentRound - 1, status.roundsRequired));
+    const roundDisplay = Math.min(status.currentRound, status.roundsRequired);
+    const stepsDone = Math.max(0, status.currentStep - 1);
+
+    // ลู่วิ่ง: แสดง "รอบที่กำลังเล่นอยู่ตอนนี้" (เริ่มรอบ 1 ก็ขึ้น 1 เลย, รอบสุดท้ายขึ้น roundsRequired/roundsRequired)
+    document.getElementById("trackScore").childNodes[0].textContent = roundDisplay;
+    document.getElementById("trackTotal").textContent = `/${status.roundsRequired}`;
+    updateTrackProgress(status.routeLength ? stepsDone / status.routeLength : 0);
+    renderTrackDots(state.route);
+
+    // ข้อความหัวรายการ
+    document.getElementById("nextLabel").textContent = "จุดเช็คอินต่อไป";
+
+    // แถว icon ตามจำนวนรอบ
+    renderRoundIcons(status.roundsRequired, roundsDone);
+
+    const list = document.getElementById("routeList");
+    list.innerHTML = "";
+    state.route.forEach((cp) => {
+      const item = document.createElement("div");
+      item.className = "route-item" + (cp.doneThisRound ? " done" : "") + (cp.isTarget ? " target" : "");
+      item.id = `route-item-${cp.id}`;
+
+      const imgSrc = cp.imageUrl
+        ? toDirectImageUrl(cp.imageUrl)
+        : `https://staticmap.openstreetmap.de/staticmap.php?center=${cp.lat},${cp.lng}&zoom=17&size=90x90&markers=${cp.lat},${cp.lng},red-pushpin`;
+
+      let rightHtml;
+      if (cp.doneThisRound) {
+        rightHtml = `<div class="route-status">✅ เก็บแล้ว</div>`;
+      } else if (cp.isTarget) {
+        rightHtml = `
+          <div class="route-target-actions">
+            <a class="route-nav" target="_blank" rel="noopener" href="https://maps.google.com/maps?daddr=${cp.lat},${cp.lng}&dirflg=w">🧭 นำทาง</a>
+            <button class="route-checkin-btn hidden" id="route-checkin-${cp.id}" data-cp="${cp.id}">✅ เช็คอิน</button>
+          </div>`;
+      } else {
+        rightHtml = `<div class="route-status">⏳ รอคิว</div>`;
+      }
+
+      item.innerHTML = `
+        <div class="route-order num">${state.route.indexOf(cp) + 1}</div>
+        <img class="route-img" src="${imgSrc}" alt="${cp.name}" loading="lazy"
+             onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'route-icon',textContent:'${state.route.indexOf(cp)+1}'}))">
+        <div class="route-info">
+          <div class="route-name">${cp.name}</div>
+          <div class="route-dist" id="route-dist-${cp.id}">${cp.isTarget ? "กำลังหาตำแหน่ง..." : ""}</div>
+        </div>
+        ${rightHtml}
+      `;
+      list.appendChild(item);
+
+      if (cp.isTarget) {
+        const btn = item.querySelector(`#route-checkin-${cp.id}`);
+        if (btn) btn.addEventListener("click", (e) => doManualCheckIn(cp, state.myPos, e.currentTarget));
+      }
+    });
+
+    if (state.myPos) updateDistances(state.myPos);
+  }
+
+  function startGpsTracking() {
+    const statusEl = document.getElementById("gpsText");
+    const dotEl = document.getElementById("gpsDot");
+    const errEl = document.getElementById("gpsError");
+    if (!("geolocation" in navigator)) {
+      errEl.textContent = "อุปกรณ์นี้ไม่รองรับ GPS กรุณาใช้มือถือที่มี GPS";
+      errEl.style.display = "block";
+      return;
+    }
+    state.watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        dotEl.classList.add("ok");
+        const acc = Math.round(pos.coords.accuracy);
+        statusEl.textContent = `กำลังติดตามตำแหน่ง (ความแม่นยำ ±${acc} ม.)`;
+        errEl.style.display = "none";
+        state.myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        updateDistances(state.myPos);
+      },
+      (err) => {
+        dotEl.classList.remove("ok");
+        let msg = "ไม่สามารถเข้าถึงตำแหน่งได้";
+        if (err.code === err.PERMISSION_DENIED) msg = "กรุณาอนุญาตให้เว็บนี้เข้าถึงตำแหน่งของคุณ (Location) แล้วรีเฟรชหน้าใหม่";
+        else if (err.code === err.TIMEOUT) msg = "หาสัญญาณ GPS ไม่ทัน กรุณาออกไปที่โล่งแจ้งแล้วลองใหม่";
+        errEl.textContent = msg; errEl.style.display = "block";
+      },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+    );
+  }
+  function stopGpsTracking() { if (state.watchId !== null) { navigator.geolocation.clearWatch(state.watchId); state.watchId = null; } }
+
+  // ---------- อัปเดตระยะเฉพาะจุดเป้าหมาย (จุดอื่นไม่ต้องกดเช็คอินได้อยู่แล้ว) ----------
+  function updateDistances(pos) {
+    const target = state.route.find(cp => cp.isTarget);
+    if (!target) return;
+    const distEl = document.getElementById(`route-dist-${target.id}`);
+    const btnEl = document.getElementById(`route-checkin-${target.id}`);
+    if (!distEl) return;
+    const dist = distanceMeters(pos.lat, pos.lng, target.lat, target.lng);
+    const { level, label } = getDistanceLevel(dist, target.radius);
+    distEl.textContent = `ห่างจากจุดนี้ ${Math.round(dist)} เมตร • ${label}`;
+    distEl.className = `route-dist ${level !== "far" ? "lv-" + level : ""}`;
+    if (btnEl) btnEl.classList.toggle("hidden", level !== "inrange");
+  }
+
+  async function doManualCheckIn(cp, pos, btnEl) {
+    if (state.checkingIn || !pos) return;
+    state.checkingIn = true;
+    btnEl.disabled = true; btnEl.textContent = "กำลังเช็คอิน...";
+
+    try {
+      const res = await callApi({ action: "checkIn", id: state.id, checkpointId: cp.id, lat: pos.lat, lng: pos.lng });
+
+      if (!res.success) {
+        if (res.error === "checkpoint not next in sequence") {
+          try {
+            const fresh = await callApi({ action: "getStatus", id: state.id });
+            if (fresh.success) renderStatus(fresh);
+          } catch (e2) { /* เน็ตหลุด ปล่อยผ่าน */ }
+          alert("อัพเดทจุดเช็คอิน");
+        } else {
+          alert(res.error === "too far from checkpoint"
+            ? "ระยะห่างเกินรัศมีแล้ว กรุณาเดินเข้าใกล้จุดอีกครั้ง"
+            : (res.error || "เช็คอินไม่สำเร็จ"));
+        }
+        btnEl.disabled = false; btnEl.textContent = "✅ เช็คอิน";
+        state.checkingIn = false;
+        return;
+      }
+
+      if (res.status === "success") {
+        stopTimer(); stopGpsTracking(); stopStatusPolling(); showEndState(res); return;
+      }
+      renderStatus(res);
+    } catch (e) {
+      alert(e.message);
+      btnEl.disabled = false; btnEl.textContent = "✅ เช็คอิน";
+    } finally {
+      state.checkingIn = false;
+    }
+  }
+
+  // แทนที่จะ "นับถอยหลังทีละ 1 วินาที" (เพี้ยนสะสมได้ถ้า browser หรี่ setInterval ตอนสลับแอป/ปิดจอ)
+  // ให้จำ "เวลาที่ควรจะหมด" (endTime) ไว้ครั้งเดียว แล้วคำนวณเวลาที่เหลือจาก now ทุกครั้งที่จะแสดงผล
+  function getRemainingMs() {
+    return state.endTime ? Math.max(0, state.endTime - Date.now()) : 0;
+  }
+
+  function startTimer(remainingMs) {
+    state.endTime = Date.now() + remainingMs;
+    updateTimerText(getRemainingMs());
+    state.timerInterval = setInterval(() => {
+      const remaining = getRemainingMs();
+      updateTimerText(remaining);
+      if (remaining <= 0) {
+        stopTimer(); stopGpsTracking(); stopStatusPolling();
+        callApi({ action: "getStatus", id: state.id }).then(showEndState).catch(() => {});
+      }
+    }, 1000);
+  }
+  function stopTimer() { if (state.timerInterval) clearInterval(state.timerInterval); }
+  function updateTimerText(ms) {
+    const totalSec = Math.max(0, Math.floor(ms / 1000));
+    const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+    const ss = String(totalSec % 60).padStart(2, "0");
+    const el = document.getElementById("timerText");
+    el.textContent = `${mm}:${ss}`;
+    el.classList.toggle("low", totalSec <= 300);
+  }
+
+  function formatDuration(ms) {
+    if (!ms && ms !== 0) return "-";
+    const totalSec = Math.floor(ms / 1000);
+    const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+    const ss = String(totalSec % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+  }
+
+  function showEndState(status) {
+    gameArea.classList.add("hidden");
+    loginCard.classList.add("hidden");
+    endCard.classList.remove("hidden");
+
+    const roundsDone = Math.min(status.currentRound - (status.status === "success" ? 0 : (status.currentStep > 1 ? 0 : 1)), status.roundsRequired);
+
+    if (status.status === "success") {
+      document.getElementById("endEmoji").textContent = "🏆";
+      document.getElementById("endTitle").textContent = "ภารกิจสำเร็จ!";
+      document.getElementById("endSub").textContent = "คุณเก็บครบทุกรอบภายในเวลาที่กำหนดแล้ว";
+      document.getElementById("endStats").classList.add("show");
+      document.getElementById("endRounds").textContent = `${status.roundsRequired}/${status.roundsRequired}`;
+      document.getElementById("endDuration").textContent = formatDuration((status.finishTime || Date.now()) - status.startTime);
+      document.getElementById("endCredit").textContent = `${status.credit || 1} เครดิต`;
+    } else {
+      document.getElementById("endEmoji").textContent = "⏱️";
+      document.getElementById("endTitle").textContent = "หมดเวลาแล้ว";
+      document.getElementById("endSub").textContent = "เล่นได้วันละ 1 ครั้งเท่านั้น พรุ่งนี้มาลองใหม่ได้นะ";
+      document.getElementById("endStats").classList.add("show");
+      document.getElementById("endRounds").textContent = `${Math.max(0, status.currentRound - 1)}/${status.roundsRequired}`;
+      document.getElementById("endDuration").textContent = formatDuration(GAME_DURATION_MS);
+      document.getElementById("endCredit").textContent = `${status.credit || 0} เครดิต`;
+    }
+  }
+
+  document.getElementById("endBackBtn").addEventListener("click", () => location.reload());
+</script>
+</body>
+</html>
